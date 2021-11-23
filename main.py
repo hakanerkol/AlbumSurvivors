@@ -193,7 +193,7 @@ async def new_round(ctx, arg):
 async def on_ready():
     await bot.change_presence(activity = discord.Activity(
                           type = discord.ActivityType.listening, 
-                          name = 'LDReycist - Blue CockRings'))
+                          name = ''))
     print(f'{bot.user} has connected to Discord!')
 
 @bot.command(name="eclipse")
