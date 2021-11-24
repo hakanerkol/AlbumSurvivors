@@ -19,13 +19,29 @@ def get_metadata(mb_api):
   return tracklist
 
 def add_album(album_title, tracklist):
+  split_title = album_title.split()
+  acronym = ""
+  for word in split_title:
+    acronym += word[0]
+
+  print(acronym)
+  db[acronym] = album_title
   album_scores = {}
+
   for track in tracklist:
       album_scores[track] = 0
+
   db[album_title] = album_scores
   start_rounds = {album_title: 1}
   db['album_rounds'] = start_rounds
   db['elim'] = {album_title: {}}
+
+def check_acronyms(user_input):
+  if user_input.startswith("#"):
+    acronym = user_input[1:]
+    return db[acronym]
+  else:
+    return user_input
 
 def check_saves_offs(album_title):
   tracklist = db[album_title]
@@ -57,9 +73,10 @@ def check_saves_offs(album_title):
 
 @bot.command(name="scores")
 async def print_scores(ctx, arg):
-  response, eliminated = scores(arg.lower())[0], scores(arg.lower())[1]
-  embed = discord.Embed(title='Round {}'.format(db['album_rounds'][arg.lower()]), color = 0x6eebff)
-  embed.add_field(name='{}'.format(arg.lower()), value=response+'\n'+eliminated)
+  album_title = check_acronyms(arg.lower())
+  response, eliminated = scores(album_title)[0], scores(album_title)[1]
+  embed = discord.Embed(title='Round {}'.format(db['album_rounds'][album_title]), color = 0x6eebff)
+  embed.add_field(name='{}'.format(album_title), value=response+'\n'+eliminated)
   await ctx.send(embed=embed)
 
 def scores(arg):
@@ -75,17 +92,12 @@ def scores(arg):
 
   return [response, eliminated]
 
-
-
 @bot.command(name="vote")
 async def vote_tracks(ctx, arg):
   def verify(message):
       return message.channel == ctx.channel and message.author == ctx.author
 
-  if arg is None or len(arg) < 1:
-    await ctx.send("Please choose an album to vote for! Example: $vote \"Album title\"")
-
-  album_title = arg.lower()
+  album_title = check_acronyms(arg.lower())
 
   if album_title in db.keys():
     check = check_saves_offs(album_title)
@@ -160,7 +172,7 @@ def round_calculator(album_title):
 
     ranks = """WIN: \n {} - [{}] \n
     HIGH: \n {} - [{}] \n {} - [{}] \n
-    SAFE: \n {} \n
+    SAFE: \n {}
     LOW: \n {} - [{}] \n {} - [{}] \n
     ELIMINATED: \n {} - [{}]""".format(win, win_score, high1, high1_score, high2, high2_score, safe_print, low1, low1_score, low2, low_2score, elim, elim_score)
 
@@ -172,13 +184,13 @@ def round_calculator(album_title):
 
 @bot.command(name="round")
 async def new_round(ctx, arg):
-  album_title = arg.lower()
+  album_title = check_acronyms(arg.lower())
   if album_title in db.keys():
     db['album_rounds'][album_title] += 1
     ranks = round_calculator(album_title)
     checks = check_saves_offs(album_title)
-    embed = discord.Embed(title='Round {}'.format(db['album_rounds'][album_title.lower()]-1), color = 0x6eebff)
-    embed.add_field(name='{}'.format(album_title.lower()), value=ranks)
+    embed = discord.Embed(title='Round {}'.format(db['album_rounds'][album_title]-1), color = 0x6eebff)
+    embed.add_field(name='{}'.format(album_title), value=ranks)
     await ctx.send(embed=embed)
     if (checks[0]) == 0 and (checks[1]) == 0:
       await ctx.send("This survivor has now finished. The winner is " + ranks + "\n Thanks for playing!")
@@ -189,18 +201,6 @@ async def new_round(ctx, arg):
   else:
     await ctx.send("This album does not have a survivor or you made a typo. Please check bestie.")
 
-@bot.event
-async def on_ready():
-    await bot.change_presence(activity = discord.Activity(
-                          type = discord.ActivityType.listening, 
-                          name = ''))
-    print(f'{bot.user} has connected to Discord!')
-
-@bot.command(name="eclipse")
-async def eclipse(ctx):
-    response = "Apocalyptic eucalyptus of Venice's Eclit"
-    await ctx.send(response)
-
 @bot.command(name="survivor")
 async def survivor(ctx, arg1, arg2):
     album_title = arg1.lower()
@@ -208,5 +208,12 @@ async def survivor(ctx, arg1, arg2):
     tracklist = get_metadata(mb_api)
     if album_title not in db.keys():
       add_album(album_title, tracklist)
+
+@bot.event
+async def on_ready():
+    await bot.change_presence(activity = discord.Activity(
+                          type = discord.ActivityType.listening, 
+                          name = ''))
+    print(f'{bot.user} has connected to Discord!')
 
 bot.run(my_secret)
